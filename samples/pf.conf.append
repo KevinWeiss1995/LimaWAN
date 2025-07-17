@@ -1,0 +1,14 @@
+# LimaWAN PF Configuration Snippet
+# This file contains the PF anchor configuration that should be added to /etc/pf.conf
+# 
+# Usage:
+#   sudo cat samples/pf.conf.append >> /etc/pf.conf
+#   sudo pfctl -f /etc/pf.conf
+#
+# Or use the setup_pf_forwarding.sh script which handles this automatically.
+
+# LimaWAN Port Forwarding Anchor
+# This anchor loads the LimaWAN-specific rules from the anchor file
+anchor "limawan" {
+    load anchor "limawan" from "/etc/pf.anchors/limawan"
+} 

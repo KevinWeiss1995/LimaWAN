@@ -1,0 +1,108 @@
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files and backups
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# Log files
+*.log
+logs/
+*.out
+
+# PF configuration backups (generated during operation)
+/etc/pf.conf.bak*
+/etc/pf.anchors/*.bak
+pf.conf.backup*
+
+# Lima VM generated files
+*.lima/
+.lima/
+lima-*/
+
+# Test output and temporary files
+test_output/
+*.test
+test_results/
+coverage/
+
+# SSH keys and certificates (should not be in repo)
+*.pem
+*.key
+*.crt
+*.cert
+id_rsa*
+id_ed25519*
+known_hosts*
+
+# Local environment and user-specific files
+.env
+.env.local
+.envrc
+config.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-*
+.vim/
+.nvim/
+
+# Build artifacts and cache
+build/
+dist/
+*.o
+*.so
+*.dylib
+
+# Documentation build files
+docs/_build/
+*.pdf
+*.epub
+
+# Personal notes and drafts
+notes/
+drafts/
+TODO.personal
+*.draft
+
+# Runtime files
+*.pid
+*.sock
+*.lock
+
+# Generated anchor files (temporary)
+anchor_*.tmp
+*.anchor.tmp
+
+# Homebrew Cellar symlinks
+Cellar/
+
+# Node modules (if any JS tools are added later)
+node_modules/
+
+# Python cache (if any Python tools are added later)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Local testing directories
+local_test/
+sandbox/
+test/ 

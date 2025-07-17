@@ -1,0 +1,239 @@
+# LimaWAN Sample Configuration
+# Minimal Lima VM config with known static IP for consistent port forwarding
+
+# VM Configuration
+vmType: "qemu"
+os: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+arch: "x86_64"
+
+# Resource allocation
+cpus: 2
+memory: "2GiB"
+disk: "10GiB"
+
+# Network configuration with static IP
+networks:
+  - lima: "shared"
+    macAddress: "52:55:55:53:00:01"
+    interface: "lima0"
+    
+# Additional network configuration for consistent IP
+# This configures the VM to use a predictable IP address
+qemu:
+  args:
+    - "-netdev"
+    - "user,id=net0,hostfwd=tcp::0-:22"
+    - "-device"
+    - "virtio-net-pci,netdev=net0"
+
+# SSH configuration
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: true
+  forwardAgent: false
+  forwardX11: false
+
+# Firmware and hardware
+firmware:
+  legacyBIOS: false
+  
+video:
+  display: "none"
+  
+audio:
+  device: "none"
+
+# Mounts
+mounts:
+  - location: "~"
+    writable: true
+    9p:
+      securityModel: "mapped-xattr"
+      cache: "mmap"
+  - location: "/tmp/lima"
+    writable: true
+
+# Cloud-init configuration for static IP setup
+cloudInit:
+  # Network configuration for static IP
+  networkConfig: |
+    version: 2
+    ethernets:
+      enp0s1:
+        addresses:
+          - 192.168.105.10/24
+        gateway4: 192.168.105.1
+        nameservers:
+          addresses:
+            - 1.1.1.1
+            - 8.8.8.8
+        dhcp4: false
+        optional: true
+        
+  # User data for initial setup
+  userData: |
+    #cloud-config
+    
+    # System configuration
+    hostname: "limawan-vm"
+    manage_etc_hosts: true
+    
+    # Update and install packages
+    package_update: true
+    package_upgrade: true
+    
+    packages:
+      - curl
+      - wget
+      - git
+      - vim
+      - htop
+      - net-tools
+      - openssh-server
+      - ufw
+      - fail2ban
+      - nginx
+      
+    # SSH configuration
+    ssh_authorized_keys:
+      - "{{.SSHPubKey}}"
+      
+    # Configure SSH daemon
+    ssh:
+      disable_root: true
+      password_authentication: false
+      challenge_response_authentication: false
+      pubkey_authentication: true
+      permit_root_login: false
+      
+    # System configuration
+    timezone: "UTC"
+    locale: "en_US.UTF-8"
+    
+    # Run commands on first boot
+    runcmd:
+      # Configure network interface
+      - netplan generate
+      - netplan apply
+      
+      # Configure SSH
+      - systemctl enable ssh
+      - systemctl start ssh
+      
+      # Configure UFW firewall
+      - ufw --force enable
+      - ufw allow ssh
+      - ufw allow 22/tcp
+      - ufw allow 80/tcp
+      - ufw allow 443/tcp
+      - ufw default deny incoming
+      - ufw default allow outgoing
+      
+      # Configure fail2ban
+      - systemctl enable fail2ban
+      - systemctl start fail2ban
+      
+      # Configure nginx
+      - systemctl enable nginx
+      - systemctl start nginx
+      
+      # Create a simple index page
+      - echo "<h1>LimaWAN VM</h1><p>VM IP: 192.168.105.10</p><p>Access successful!</p>" > /var/www/html/index.html
+      
+      # Set up log rotation
+      - logrotate -f /etc/logrotate.conf
+      
+      # Configure automatic updates
+      - apt-get install -y unattended-upgrades
+      - dpkg-reconfigure -plow unattended-upgrades
+      
+      # Network optimization
+      - echo 'net.core.rmem_max = 16777216' >> /etc/sysctl.conf
+      - echo 'net.core.wmem_max = 16777216' >> /etc/sysctl.conf
+      - echo 'net.ipv4.tcp_rmem = 4096 65536 16777216' >> /etc/sysctl.conf
+      - echo 'net.ipv4.tcp_wmem = 4096 65536 16777216' >> /etc/sysctl.conf
+      - sysctl -p
+      
+    # Final message
+    final_message: "LimaWAN VM is ready! IP: 192.168.105.10"
+
+# Provision scripts
+provision:
+  # System hardening
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      
+      # Additional security hardening
+      
+      # SSH hardening
+      sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
+      sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 300/' /etc/ssh/sshd_config
+      sed -i 's/#ClientAliveCountMax 3/ClientAliveCountMax 2/' /etc/ssh/sshd_config
+      
+      # Restart SSH
+      systemctl restart ssh
+      
+      # Configure fail2ban for SSH
+      cat > /etc/fail2ban/jail.local << 'EOF'
+      [DEFAULT]
+      bantime = 3600
+      findtime = 600
+      maxretry = 3
+      
+      [sshd]
+      enabled = true
+      port = ssh
+      logpath = %(sshd_log)s
+      backend = %(sshd_backend)s
+      EOF
+      
+      systemctl restart fail2ban
+      
+      # Set up system limits
+      echo "* soft nofile 65536" >> /etc/security/limits.conf
+      echo "* hard nofile 65536" >> /etc/security/limits.conf
+      
+      # Configure kernel parameters for security
+      cat >> /etc/sysctl.conf << 'EOF'
+      # Network security
+      net.ipv4.ip_forward = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+      net.ipv4.conf.all.accept_source_route = 0
+      net.ipv4.conf.default.accept_source_route = 0
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.secure_redirects = 0
+      net.ipv4.conf.default.secure_redirects = 0
+      net.ipv4.conf.all.log_martians = 1
+      net.ipv4.conf.default.log_martians = 1
+      net.ipv4.icmp_echo_ignore_broadcasts = 1
+      net.ipv4.icmp_ignore_bogus_error_responses = 1
+      net.ipv4.tcp_syncookies = 1
+      EOF
+      
+      sysctl -p
+      
+      echo "VM security hardening complete"
+
+# Probes for health checking
+probes:
+  - description: "SSH connectivity"
+    script: |
+      #!/bin/bash
+      nc -z 192.168.105.10 22
+    hint: "Check if SSH is accessible"
+    
+  - description: "Web server"
+    script: |
+      #!/bin/bash
+      curl -f http://192.168.105.10/ >/dev/null 2>&1
+    hint: "Check if web server is running"
+    
+  - description: "Network connectivity"
+    script: |
+      #!/bin/bash
+      ping -c 3 192.168.105.10 >/dev/null 2>&1
+    hint: "Check if VM is reachable" 

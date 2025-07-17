@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.limawan.firewall</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/limawan_enable_pf</string>
+        <string>--force</string>
+    </array>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <false/>
+    
+    <key>LaunchOnlyOnce</key>
+    <false/>
+    
+    <key>StartInterval</key>
+    <integer>300</integer>
+    
+    <key>StandardOutPath</key>
+    <string>/var/log/limawan_firewall.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/var/log/limawan_firewall.log</string>
+    
+    <key>UserName</key>
+    <string>root</string>
+    
+    <key>GroupName</key>
+    <string>wheel</string>
+    
+    <key>ProcessType</key>
+    <string>Background</string>
+    
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+    
+    <key>TimeOut</key>
+    <integer>30</integer>
+    
+    <key>ExitTimeOut</key>
+    <integer>15</integer>
+    
+    <key>WatchPaths</key>
+    <array>
+        <string>/etc/pf.conf</string>
+        <string>/etc/pf.anchors/limawan</string>
+    </array>
+    
+    <key>QueueDirectories</key>
+    <array>
+        <string>/etc/pf.anchors</string>
+    </array>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin</string>
+    </dict>
+    
+    <key>WorkingDirectory</key>
+    <string>/usr/local/bin</string>
+    
+    <key>AbandonProcessGroup</key>
+    <true/>
+    
+    <key>LimitLoadToSessionType</key>
+    <string>System</string>
+    
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Minute</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>0</integer>
+    </dict>
+</dict>
+</plist> 
