@@ -102,7 +102,7 @@ LimaWAN's PF-based approach provides:
 
 3. **Create a Lima VM with known IP**:
    ```bash
-   lima start --name limawan-vm samples/lima.yaml
+   limactl start --name limawan-vm samples/lima.yaml
    ```
 
 4. **Set up port forwarding**:
