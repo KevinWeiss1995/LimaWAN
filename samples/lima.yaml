@@ -1,30 +1,26 @@
 # LimaWAN Sample Configuration
-# Minimal Lima VM config with known static IP for consistent port forwarding
+# Lima VM config with known static IP for consistent port forwarding
 
 # VM Configuration
 vmType: "qemu"
-os: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+os: "Linux"
 arch: "x86_64"
+
+# Images - specify the OS image to use
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
 
 # Resource allocation
 cpus: 2
 memory: "2GiB"
 disk: "10GiB"
 
-# Network configuration with static IP
+# Network configuration
 networks:
   - lima: "shared"
-    macAddress: "52:55:55:53:00:01"
-    interface: "lima0"
-    
-# Additional network configuration for consistent IP
-# This configures the VM to use a predictable IP address
-qemu:
-  args:
-    - "-netdev"
-    - "user,id=net0,hostfwd=tcp::0-:22"
-    - "-device"
-    - "virtio-net-pci,netdev=net0"
 
 # SSH configuration
 ssh:
@@ -53,129 +49,73 @@ mounts:
   - location: "/tmp/lima"
     writable: true
 
-# Cloud-init configuration for static IP setup
-cloudInit:
-  # Network configuration for static IP
-  networkConfig: |
-    version: 2
-    ethernets:
-      enp0s1:
-        addresses:
-          - 192.168.105.10/24
-        gateway4: 192.168.105.1
-        nameservers:
-          addresses:
-            - 1.1.1.1
-            - 8.8.8.8
-        dhcp4: false
-        optional: true
-        
-  # User data for initial setup
-  userData: |
-    #cloud-config
-    
-    # System configuration
-    hostname: "limawan-vm"
-    manage_etc_hosts: true
-    
-    # Update and install packages
-    package_update: true
-    package_upgrade: true
-    
-    packages:
-      - curl
-      - wget
-      - git
-      - vim
-      - htop
-      - net-tools
-      - openssh-server
-      - ufw
-      - fail2ban
-      - nginx
-      
-    # SSH configuration
-    ssh_authorized_keys:
-      - "{{.SSHPubKey}}"
-      
-    # Configure SSH daemon
-    ssh:
-      disable_root: true
-      password_authentication: false
-      challenge_response_authentication: false
-      pubkey_authentication: true
-      permit_root_login: false
-      
-    # System configuration
-    timezone: "UTC"
-    locale: "en_US.UTF-8"
-    
-    # Run commands on first boot
-    runcmd:
-      # Configure network interface
-      - netplan generate
-      - netplan apply
-      
-      # Configure SSH
-      - systemctl enable ssh
-      - systemctl start ssh
-      
-      # Configure UFW firewall
-      - ufw --force enable
-      - ufw allow ssh
-      - ufw allow 22/tcp
-      - ufw allow 80/tcp
-      - ufw allow 443/tcp
-      - ufw default deny incoming
-      - ufw default allow outgoing
-      
-      # Configure fail2ban
-      - systemctl enable fail2ban
-      - systemctl start fail2ban
-      
-      # Configure nginx
-      - systemctl enable nginx
-      - systemctl start nginx
-      
-      # Create a simple index page
-      - echo "<h1>LimaWAN VM</h1><p>VM IP: 192.168.105.10</p><p>Access successful!</p>" > /var/www/html/index.html
-      
-      # Set up log rotation
-      - logrotate -f /etc/logrotate.conf
-      
-      # Configure automatic updates
-      - apt-get install -y unattended-upgrades
-      - dpkg-reconfigure -plow unattended-upgrades
-      
-      # Network optimization
-      - echo 'net.core.rmem_max = 16777216' >> /etc/sysctl.conf
-      - echo 'net.core.wmem_max = 16777216' >> /etc/sysctl.conf
-      - echo 'net.ipv4.tcp_rmem = 4096 65536 16777216' >> /etc/sysctl.conf
-      - echo 'net.ipv4.tcp_wmem = 4096 65536 16777216' >> /etc/sysctl.conf
-      - sysctl -p
-      
-    # Final message
-    final_message: "LimaWAN VM is ready! IP: 192.168.105.10"
-
-# Provision scripts
+# Provision scripts for system setup
 provision:
-  # System hardening
+  # System configuration and package installation
   - mode: system
     script: |
       #!/bin/bash
       set -eux
       
-      # Additional security hardening
+      # Update system
+      apt-get update
+      apt-get upgrade -y
       
-      # SSH hardening
+      # Install required packages
+      apt-get install -y \
+        curl \
+        wget \
+        git \
+        vim \
+        htop \
+        net-tools \
+        openssh-server \
+        ufw \
+        fail2ban \
+        nginx \
+        unattended-upgrades
+      
+      # Configure network with static IP
+      cat > /etc/netplan/50-cloud-init.yaml << 'EOF'
+      network:
+        version: 2
+        ethernets:
+          enp0s1:
+            addresses:
+              - 192.168.105.10/24
+            gateway4: 192.168.105.1
+            nameservers:
+              addresses:
+                - 1.1.1.1
+                - 8.8.8.8
+            dhcp4: false
+            optional: true
+      EOF
+      
+      netplan generate
+      netplan apply
+      
+      # Configure SSH daemon
+      sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+      sed -i 's/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
+      sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+      sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
       sed -i 's/#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config
       sed -i 's/#ClientAliveInterval 0/ClientAliveInterval 300/' /etc/ssh/sshd_config
       sed -i 's/#ClientAliveCountMax 3/ClientAliveCountMax 2/' /etc/ssh/sshd_config
       
-      # Restart SSH
       systemctl restart ssh
       
-      # Configure fail2ban for SSH
+      # Configure UFW firewall
+      ufw --force enable
+      ufw allow ssh
+      ufw allow 22/tcp
+      ufw allow 80/tcp
+      ufw allow 443/tcp
+      ufw default deny incoming
+      ufw default allow outgoing
+      
+      # Configure fail2ban
       cat > /etc/fail2ban/jail.local << 'EOF'
       [DEFAULT]
       bantime = 3600
@@ -189,11 +129,18 @@ provision:
       backend = %(sshd_backend)s
       EOF
       
-      systemctl restart fail2ban
+      systemctl enable fail2ban
+      systemctl start fail2ban
       
-      # Set up system limits
-      echo "* soft nofile 65536" >> /etc/security/limits.conf
-      echo "* hard nofile 65536" >> /etc/security/limits.conf
+      # Configure nginx
+      systemctl enable nginx
+      systemctl start nginx
+      
+      # Create a simple index page
+      echo "<h1>LimaWAN VM</h1><p>VM IP: 192.168.105.10</p><p>Access successful!</p>" > /var/www/html/index.html
+      
+      # Configure automatic updates
+      dpkg-reconfigure -plow unattended-upgrades
       
       # Configure kernel parameters for security
       cat >> /etc/sysctl.conf << 'EOF'
@@ -216,7 +163,37 @@ provision:
       
       sysctl -p
       
-      echo "VM security hardening complete"
+      # Set up system limits
+      echo "* soft nofile 65536" >> /etc/security/limits.conf
+      echo "* hard nofile 65536" >> /etc/security/limits.conf
+      
+      # Set hostname
+      hostnamectl set-hostname limawan-vm
+      
+      # Network optimization
+      echo 'net.core.rmem_max = 16777216' >> /etc/sysctl.conf
+      echo 'net.core.wmem_max = 16777216' >> /etc/sysctl.conf
+      echo 'net.ipv4.tcp_rmem = 4096 65536 16777216' >> /etc/sysctl.conf
+      echo 'net.ipv4.tcp_wmem = 4096 65536 16777216' >> /etc/sysctl.conf
+      sysctl -p
+      
+      echo "LimaWAN VM setup complete"
+
+  # User configuration
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux
+      
+      # Add SSH key if provided
+      if [ -n "${SSH_PUBLIC_KEY:-}" ]; then
+        mkdir -p ~/.ssh
+        echo "${SSH_PUBLIC_KEY}" >> ~/.ssh/authorized_keys
+        chmod 600 ~/.ssh/authorized_keys
+        chmod 700 ~/.ssh
+      fi
+      
+      echo "User configuration complete"
 
 # Probes for health checking
 probes:
@@ -236,4 +213,29 @@ probes:
     script: |
       #!/bin/bash
       ping -c 3 192.168.105.10 >/dev/null 2>&1
-    hint: "Check if VM is reachable" 
+    hint: "Check if VM is reachable"
+
+# Message to display when VM is ready
+message: |
+  To set up SSH access to this VM:
+  ------------------------------
+  
+  1. Get the VM IP address (dynamically assigned via DHCP):
+     VM_IP=$(tools/get_vm_ip.sh -q)
+     echo "VM IP: $VM_IP"
+  
+  2. SSH is configured for key-based authentication only
+  
+  3. To set up port forwarding:
+     sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
+  
+  4. Test SSH access:
+     ssh -p 2222 $USER@localhost
+  
+  Security features enabled:
+  - fail2ban for intrusion detection
+  - UFW firewall with restrictive rules
+  - SSH hardening (key-only, no root)
+  - Network security parameters
+  
+  LimaWAN VM is ready for secure internet exposure! 

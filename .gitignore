@@ -37,6 +37,7 @@ test_output/
 *.test
 test_results/
 coverage/
+demo_output/
 
 # SSH keys and certificates (should not be in repo)
 *.pem

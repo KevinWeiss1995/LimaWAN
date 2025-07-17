@@ -14,20 +14,20 @@ LimaWAN provides a safe and reproducible way to expose Lima virtual machines to 
 └─────────────────────────┬───────────────────────────────────────┘
                           │
 ┌─────────────────────────┴───────────────────────────────────────┐
-│                     Router/ISP                                 │
-│                   (Port Forward)                               │
+│                     Router/ISP                                  │
+│                   (Port Forward)                                │
 └─────────────────────────┬───────────────────────────────────────┘
                           │
 ┌─────────────────────────┴───────────────────────────────────────┐
-│                    macOS Host                                  │
-│                                                                │
-│  ┌─────────────┐       ┌─────────────┐       ┌─────────────┐  │
-│  │   Router    │  WAN  │     PF      │  FWD  │ Lima VM     │  │
-│  │   :2222     │◄──────┤  Firewall   │◄──────┤ :22 (SSH)   │  │
-│  │   :8080     │       │  Rules      │       │ :80 (HTTP)  │  │
-│  └─────────────┘       └─────────────┘       └─────────────┘  │
-│                                                                │
-│  Interface: en0         Anchor: limawan      IP: 192.168.105.10│
+│                    macOS Host                                   │
+│                                                                 │
+│  ┌─────────────┐       ┌─────────────┐       ┌─────────────┐    │
+│  │   Router    │  WAN  │     PF      │  FWD  │ Lima VM     │    │
+│  │   :2222     │◄──────┤  Firewall   │◄──────┤ :22 (SSH)   │    │
+│  │   :8080     │       │  Rules      │       │ :80 (HTTP)  │    │
+│  └─────────────┘       └─────────────┘       └─────────────┘    │
+│                                                                 │
+│  Interface: en0         Anchor: limawan      IP: 192.168.105.10 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -56,7 +56,7 @@ LimaWAN's PF-based approach provides:
 
 ## Security Implications
 
-⚠️ **Important**: Exposing VM services to the internet carries security risks. Ensure you harden any exposed VM following security best practices. **The user assumes any and all risks asoociated with this service**. ⚠️
+⚠️ **Important**: Exposing VM services to the internet carries security risks. Ensure you harden any exposed VM following security best practices. **The user assumes any and all risks asoociated with this service**. 
 
 ### Risks
 - **Direct WAN exposure**: Services become publicly accessible
@@ -89,26 +89,99 @@ LimaWAN's PF-based approach provides:
 
 ### Installation
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/your-username/LimaWAN.git
-   cd LimaWAN
-   ```
+#### Step 1: Install Lima
 
-2. **Make scripts executable**:
-   ```bash
-   chmod +x scripts/*.sh test/*.sh tools/*.sh
-   ```
+```bash
+brew install lima
+```
 
-3. **Create a Lima VM with known IP**:
-   ```bash
-   limactl start --name limawan-vm samples/lima.yaml
-   ```
+#### Step 2: Install socket_vmnet (Required for Lima networking)
 
-4. **Set up port forwarding**:
-   ```bash
-   sudo scripts/setup_pf_forwarding.sh -v 192.168.105.10 -i 22 -e 2222
-   ```
+⚠️ **Critical**: `socket_vmnet` must be installed from source to a secure location, not via Homebrew, for Lima to work properly.
+
+```bash
+# Install socket_vmnet from source
+git clone https://github.com/lima-vm/socket_vmnet.git
+cd socket_vmnet
+
+# Check out the latest stable release
+git checkout v1.2.1
+
+# Build and install to secure location
+make
+sudo make PREFIX=/opt/socket_vmnet install.bin
+
+# Clean up
+cd ..
+rm -rf socket_vmnet
+```
+
+#### Step 3: Configure Lima sudoers
+
+```bash
+# Generate and install sudoers file for Lima
+limactl sudoers | sudo tee /etc/sudoers.d/lima
+
+# Verify the sudoers file looks correct
+sudo cat /etc/sudoers.d/lima
+```
+
+#### Step 4: Clone LimaWAN
+
+```bash
+git clone https://github.com/KevinWeiss1995/LimaWAN.git
+cd LimaWAN
+```
+
+#### Step 5: Make scripts executable
+
+```bash
+chmod +x scripts/*.sh test/*.sh tools/*.sh
+```
+
+#### Step 6: Start Lima VM
+
+```bash
+# Start the Lima VM with the provided configuration
+limactl start --name limawan-vm samples/lima.yaml
+```
+
+#### Step 7: Set up port forwarding
+
+```bash
+# Get the VM's IP address (automatically assigned via DHCP)
+VM_IP=$(tools/get_vm_ip.sh -q)
+echo "VM IP: $VM_IP"
+
+# Set up port forwarding for SSH
+sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
+```
+
+#### Step 8: Test SSH access
+
+```bash
+ssh -p 2222 user@localhost
+```
+
+**Note**: The VM IP address is dynamically assigned via DHCP from the range `192.168.105.2-192.168.105.254`. It will typically be `192.168.105.2` for the first VM, but may vary.
+
+### Automated Demo Setup
+
+For a fully automated demonstration of the entire workflow:
+
+```bash
+# Run the complete demo setup
+./setup_demo.sh
+```
+
+This script will:
+1. Check all prerequisites
+2. Clean up any existing demo setup
+3. Start a new Lima VM (`limawan-demo`)
+4. Set up SSH and HTTP port forwarding
+5. Run comprehensive diagnostics
+6. Test connectivity
+7. Display a summary with test commands
 
 ### Quick Start Example
 
@@ -116,16 +189,20 @@ LimaWAN's PF-based approach provides:
 # 1. Start Lima VM
 limactl start --name web-server samples/lima.yaml
 
-# 2. Set up SSH forwarding
-sudo scripts/setup_pf_forwarding.sh -v 192.168.105.10 -i 22 -e 2222
+# 2. Get VM IP address
+VM_IP=$(tools/get_vm_ip.sh -q web-server)
+echo "VM IP: $VM_IP"
 
-# 3. Set up HTTP forwarding
-sudo scripts/setup_pf_forwarding.sh -v 192.168.105.10 -i 80 -e 8080
+# 3. Set up SSH forwarding
+sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
 
-# 4. Test connectivity
-scripts/diagnostics.sh -v 192.168.105.10 -i 22 -e 2222
+# 4. Set up HTTP forwarding
+sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 80 -e 8080
 
-# 5. Test SSH access
+# 5. Test connectivity
+scripts/diagnostics.sh -v $VM_IP -i 22 -e 2222
+
+# 6. Test SSH access
 test/test_ssh_access.sh -e 2222
 ```
 
@@ -135,12 +212,18 @@ SSH is the most common service to expose. Here's how to do it safely:
 
 ### Setup
 
-1. **Configure SSH forwarding**:
+1. **Get VM IP address**:
    ```bash
-   sudo scripts/setup_pf_forwarding.sh -v 192.168.105.10 -i 22 -e 2222
+   VM_IP=$(tools/get_vm_ip.sh -q)
+   echo "VM IP: $VM_IP"
    ```
 
-2. **Test local connectivity**:
+2. **Configure SSH forwarding**:
+   ```bash
+   sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
+   ```
+
+3. **Test local connectivity**:
    ```bash
    ssh -p 2222 user@localhost
    ```
@@ -194,9 +277,15 @@ HTTP services require additional security considerations:
 
 ### Setup
 
-1. **Configure HTTP forwarding**:
+1. **Get VM IP address**:
    ```bash
-   sudo scripts/setup_pf_forwarding.sh -v 192.168.105.10 -i 80 -e 8080
+   VM_IP=$(tools/get_vm_ip.sh -q)
+   echo "VM IP: $VM_IP"
+   ```
+
+2. **Configure HTTP forwarding**:
+   ```bash
+   sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 80 -e 8080
    ```
 
 2. **Test local access**:
@@ -273,7 +362,122 @@ sudo pfctl -f /etc/pf.conf
 
 ## Troubleshooting
 
-### Common Issues
+### Installation Issues
+
+#### Lima VM Fails to Start
+
+**Symptoms**: Error messages when running `limactl start`
+```bash
+FATA[0000] networks.yaml: "/opt/socket_vmnet/bin/socket_vmnet" (`paths.socketVMNet`) has to be installed
+```
+
+**Solutions**:
+```bash
+# Verify socket_vmnet is installed correctly
+ls -la /opt/socket_vmnet/bin/socket_vmnet
+
+# If not installed, install from source:
+git clone https://github.com/lima-vm/socket_vmnet.git
+cd socket_vmnet
+git checkout v1.2.1
+make
+sudo make PREFIX=/opt/socket_vmnet install.bin
+cd .. && rm -rf socket_vmnet
+```
+
+#### Sudoers File Issues
+
+**Symptoms**: Password prompts when starting Lima
+```bash
+Password: [sudo prompt during limactl start]
+```
+
+**Solutions**:
+```bash
+# Regenerate sudoers file
+limactl sudoers | sudo tee /etc/sudoers.d/lima
+
+# Test sudoers configuration
+sudo -n /opt/socket_vmnet/bin/socket_vmnet --help
+```
+
+#### Socket VMNet Permission Errors
+
+**Symptoms**: 
+```bash
+socket_vmnet: Permission denied
+```
+
+**Solutions**:
+```bash
+# Check socket_vmnet permissions
+ls -la /opt/socket_vmnet/bin/socket_vmnet
+
+# Should be owned by root:wheel
+sudo chown root:wheel /opt/socket_vmnet/bin/socket_vmnet
+sudo chmod 755 /opt/socket_vmnet/bin/socket_vmnet
+
+# Verify sudoers file allows execution
+sudo visudo -c /etc/sudoers.d/lima
+```
+
+#### VM IP Address Issues
+
+**Symptoms**: VM gets different IP than expected or IP changes between restarts
+```bash
+# Check VM IP
+limactl shell limawan-vm ip addr | grep inet
+```
+
+**Solutions**:
+This is normal behavior - Lima VMs use DHCP by default and get IPs in the range `192.168.105.2-192.168.105.254`. To get the current IP:
+```bash
+# Get current VM IP using the helper tool
+VM_IP=$(tools/get_vm_ip.sh -q)
+echo "VM IP: $VM_IP"
+
+# Or with more detailed output
+tools/get_vm_ip.sh
+
+# Use this IP in your port forwarding commands
+sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
+```
+
+**For static IP** (advanced users):
+```bash
+# Check Lima network configuration
+cat ~/.lima/_config/networks.yaml
+
+# Check DHCP range configuration
+sudo cat /etc/bootptab
+```
+
+#### Homebrew socket_vmnet Installation
+
+**Symptoms**: Using Homebrew-installed socket_vmnet
+```bash
+# This will NOT work with Lima:
+brew install socket_vmnet
+```
+
+**Solutions**:
+```bash
+# Uninstall Homebrew version
+brew uninstall socket_vmnet
+
+# Install from source as shown above
+git clone https://github.com/lima-vm/socket_vmnet.git
+cd socket_vmnet
+git checkout v1.2.1
+make
+sudo make PREFIX=/opt/socket_vmnet install.bin
+cd .. && rm -rf socket_vmnet
+
+# Update sudoers
+limactl sudoers | sudo tee /etc/sudoers.d/lima
+```
+
+### Runtime Issues
 
 #### PF Rules Not Loading
 
@@ -520,6 +724,37 @@ sudo launchctl load /Library/LaunchDaemons/org.limawan.firewall.plist
 A: Re-run the setup script with new parameters, or manually edit the anchor file at `/etc/pf.anchors/limawan` and reload PF:
 ```bash
 sudo pfctl -f /etc/pf.conf
+```
+
+### Utility Tools
+
+**Q: How do I get the VM IP address easily?**
+A: Use the built-in IP helper tool:
+```bash
+# Get IP with colored output
+tools/get_vm_ip.sh
+
+# Get IP for scripting (quiet mode)
+VM_IP=$(tools/get_vm_ip.sh -q)
+
+# Get IP for specific VM
+tools/get_vm_ip.sh web-server
+
+# Wait for VM to be ready then get IP
+tools/get_vm_ip.sh -w -v limawan-vm
+```
+
+**Q: How do I check current configuration?**
+A: Use the configuration viewer:
+```bash
+# Show current configuration
+tools/show_config.sh
+
+# Compact view
+tools/show_config.sh --compact
+
+# Show statistics
+tools/show_config.sh --stats --verbose
 ```
 
 ### Advanced Usage
