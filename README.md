@@ -368,6 +368,22 @@ scripts/diagnostics.sh --quick
 scripts/diagnostics.sh --report
 ```
 
+#### Security Monitoring
+
+```bash
+# Run security check
+scripts/security_monitor.sh
+
+# Generate security report
+scripts/security_monitor.sh --report
+
+# Continuous monitoring with email alerts
+scripts/security_monitor.sh --daemon --email admin@example.com
+
+# Monitor with custom check interval
+scripts/security_monitor.sh --daemon --interval 30
+```
+
 #### Configuration Debugging
 
 ```bash

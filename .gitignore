@@ -20,6 +20,7 @@ Thumbs.db
 *.log
 logs/
 *.out
+/var/log/limawan_security.log
 
 # PF configuration backups (generated during operation)
 /etc/pf.conf.bak*
