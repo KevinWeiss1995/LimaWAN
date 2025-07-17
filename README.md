@@ -2,11 +2,11 @@
 
 **Expose Lima VMs on macOS to the public internet using macOS Packet Filter (PF) port forwarding.**
 
-LimaWAN enables secure, configurable WAN access to services running inside Lima VMs — no TAP, no bridge, no kernel extensions required.
+LimaWAN enables secure, configurable WAN access to services running inside Lima VMs — no TAP, no bridge, no kernel extensions required!
 
 ## Overview
 
-LimaWAN provides a safe and reproducible way to expose Lima virtual machines to the public internet using macOS's built-in Packet Filter (PF) firewall. Unlike traditional bridged networking solutions, LimaWAN uses PF's port forwarding capabilities to selectively expose VM services while maintaining security.
+LimaWAN provides a safe and reproducible way to expose Lima virtual machines to the public internet using macOS's Packet Filter (PF) firewall. Unlike traditional bridged networking solutions, we use PF's port forwarding capabilities to selectively expose VM services while maintaining security.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ LimaWAN's PF-based approach provides:
 
 ## Security Implications
 
-⚠️ **Important**: Exposing VM services to the internet carries security risks.
+⚠️ **Important**: Exposing VM services to the internet carries security risks. Ensure you harden any exposed VM following security best practices. **The user assumes any and all risks asoociated with this service**. ⚠️
 
 ### Risks
 - **Direct WAN exposure**: Services become publicly accessible
