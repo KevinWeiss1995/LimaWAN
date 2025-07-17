@@ -114,7 +114,7 @@ LimaWAN's PF-based approach provides:
 
 ```bash
 # 1. Start Lima VM
-lima start --name web-server samples/lima.yaml
+limactl start --name web-server samples/lima.yaml
 
 # 2. Set up SSH forwarding
 sudo scripts/setup_pf_forwarding.sh -v 192.168.105.10 -i 22 -e 2222
@@ -306,14 +306,14 @@ ping 192.168.105.10
 **Solutions**:
 ```bash
 # Check Lima VM status
-lima list
+limactl list
 
 # Restart Lima VM
-lima stop limawan-vm
-lima start limawan-vm
+limactl stop limawan-vm
+limactl start limawan-vm
 
 # Check VM IP configuration
-lima shell limawan-vm ip addr show
+limactl shell limawan-vm ip addr show
 ```
 
 #### Port Forwarding Not Working
@@ -330,7 +330,7 @@ nc -z localhost 2222
 sudo pfctl -a limawan -s nat
 
 # Verify port is open in VM
-lima shell limawan-vm netstat -tlnp | grep :22
+limactl shell limawan-vm netstat -tlnp | grep :22
 
 # Test internal connectivity
 nc -z 192.168.105.10 22
@@ -413,11 +413,11 @@ sudo tcpdump -i pflog0
 
 ```bash
 # Check Lima logs
-lima shell limawan-vm journalctl -f
+limactl shell limawan-vm journalctl -f
 
 # Check specific service logs
-lima shell limawan-vm sudo journalctl -u ssh
-lima shell limawan-vm sudo journalctl -u nginx
+limactl shell limawan-vm sudo journalctl -u ssh
+limactl shell limawan-vm sudo journalctl -u nginx
 ```
 
 ### Performance Issues
