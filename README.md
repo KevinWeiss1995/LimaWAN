@@ -39,6 +39,8 @@ LimaWAN provides a safe and reproducible way to expose Lima virtual machines to 
 - **Reproducible**: Scriptable setup and teardown
 - **Persistent**: Optional LaunchDaemon for boot-time setup
 - **Diagnostic tools**: Comprehensive testing and monitoring
+- **Quick setup**: Minimal VM config for fast deployment
+- **Security hardening**: Automated SSH and system hardening
 
 ## Why Not Bridged?
 
@@ -56,7 +58,7 @@ LimaWAN's PF-based approach provides:
 
 ## Security Implications
 
-⚠️ **Important**: Exposing VM services to the internet carries security risks. Ensure you harden any exposed VM following security best practices. **The user assumes any and all risks asoociated with this service**. 
+⚠️ **Important**: Exposing VM services to the internet carries security risks. Ensure you harden any exposed VM following security best practices. **The user assumes any and all risks associated with this service**. 
 
 ### Risks
 - **Direct WAN exposure**: Services become publicly accessible
@@ -139,55 +141,77 @@ cd LimaWAN
 chmod +x scripts/*.sh test/*.sh tools/*.sh
 ```
 
-#### Step 6: Start Lima VM
+### Quick Start Workflow
+
+We've streamlined the setup process with a minimal VM configuration and automated security hardening. Here's the new workflow:
+
+#### Step 1: Start VM with minimal config
 
 ```bash
-# Start the Lima VM with the provided configuration
-limactl start --name limawan-vm samples/lima.yaml
+# Start a minimal VM for fast setup
+limactl start --name limawan-vm samples/lima-minimal.yaml
 ```
 
-#### Step 7: Set up port forwarding
+The minimal config uses shared networking (`networks: - lima: shared`) which is the recommended approach for Lima VMs.
+
+#### Step 2: Get VM IP and set up port forwarding
 
 ```bash
-# Get the VM's IP address (automatically assigned via DHCP)
+# Get the VM's IP address
 VM_IP=$(tools/get_vm_ip.sh -q)
 echo "VM IP: $VM_IP"
 
-# Set up port forwarding for SSH
+# Set up SSH port forwarding (external port 2222 → VM port 22)
 sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
 ```
 
-#### Step 8: Test SSH access
+#### Step 3: Harden the VM (Optional but Recommended)
 
 ```bash
+# Run comprehensive security hardening
+scripts/security_hardening.sh --verbose limawan-vm
+
+# Or just SSH hardening if you're in a hurry
+scripts/security_hardening.sh --ssh-only limawan-vm
+```
+
+The security hardening script:
+- Disables password authentication (SSH key only)
+- Configures fail2ban for intrusion detection
+- Sets up UFW firewall
+- Updates system packages
+- Disables unnecessary services
+
+#### Step 4: Test SSH access
+
+```bash
+# Test local access first
 ssh -p 2222 user@localhost
+
+# Test external access (from another machine)
+ssh -p 2222 user@YOUR_MAC_IP
 ```
 
-**Note**: The VM IP address is dynamically assigned via DHCP from the range `192.168.105.2-192.168.105.254`. It will typically be `192.168.105.2` for the first VM, but may vary.
+**Note**: The VM IP address is dynamically assigned via DHCP from the range `192.168.105.2-192.168.105.254`. The `get_vm_ip.sh` tool automatically detects the current IP.
 
-### Automated Demo Setup
+### Automated Quick Start
 
-For a fully automated demonstration of the entire workflow:
+For the fastest possible setup:
 
 ```bash
-# Run the complete demo setup
-./setup_demo.sh
-```
+# Run the quick start script (starts VM + optional security hardening)
+scripts/quick_start.sh --security limawan-vm
 
-This script will:
-1. Check all prerequisites
-2. Clean up any existing demo setup
-3. Start a new Lima VM (`limawan-demo`)
-4. Set up SSH and HTTP port forwarding
-5. Run comprehensive diagnostics
-6. Test connectivity
-7. Display a summary with test commands
+# Then set up port forwarding
+VM_IP=$(tools/get_vm_ip.sh -q)
+sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
+```
 
 ### Quick Start Example
 
 ```bash
-# 1. Start Lima VM
-limactl start --name web-server samples/lima.yaml
+# 1. Start minimal VM
+limactl start --name web-server samples/lima-minimal.yaml
 
 # 2. Get VM IP address
 VM_IP=$(tools/get_vm_ip.sh -q web-server)
@@ -199,11 +223,14 @@ sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
 # 4. Set up HTTP forwarding
 sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 80 -e 8080
 
-# 5. Test connectivity
+# 5. Harden the VM
+scripts/security_hardening.sh --verbose web-server
+
+# 6. Test connectivity
 scripts/diagnostics.sh -v $VM_IP -i 22 -e 2222
 
-# 6. Test SSH access
-test/test_ssh_access.sh -e 2222
+# 7. Test SSH access
+ssh -p 2222 user@localhost
 ```
 
 ## Exposing SSH to WAN
@@ -223,42 +250,49 @@ SSH is the most common service to expose. Here's how to do it safely:
    sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
    ```
 
-3. **Test local connectivity**:
+3. **Harden SSH (automated)**:
+   ```bash
+   scripts/security_hardening.sh --ssh-only limawan-vm
+   ```
+
+4. **Test local connectivity**:
    ```bash
    ssh -p 2222 user@localhost
    ```
 
-3. **Configure router port forwarding**:
+5. **Configure router port forwarding**:
    - Router: Forward external port 2222 → macOS host port 2222
    - Firewall: Allow incoming connections on port 2222
 
 ### Security Hardening
 
-1. **Disable password authentication**:
+The security hardening script automatically handles most SSH security:
+
+1. **SSH Configuration** (automated):
    ```bash
-   # In VM: /etc/ssh/sshd_config
+   # The script configures these settings:
    PasswordAuthentication no
    ChallengeResponseAuthentication no
    PubkeyAuthentication yes
    PermitRootLogin no
    ```
 
-2. **Set up fail2ban** (automatically configured in sample lima.yaml):
+2. **fail2ban** (automated):
    ```bash
-   # Already configured in the sample VM
+   # Automatically installed and configured
    sudo systemctl status fail2ban
    ```
 
-3. **Use SSH keys only**:
+3. **UFW Firewall** (automated):
+   ```bash
+   # Automatically configured with restrictive rules
+   sudo ufw status
+   ```
+
+4. **Manual SSH key setup** (if needed):
    ```bash
    # Copy your public key to VM
    ssh-copy-id -p 2222 user@localhost
-   ```
-
-4. **Monitor SSH logs**:
-   ```bash
-   # In VM
-   sudo tail -f /var/log/auth.log
    ```
 
 ### Testing External Access
@@ -288,12 +322,12 @@ HTTP services require additional security considerations:
    sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 80 -e 8080
    ```
 
-2. **Test local access**:
+3. **Test local access**:
    ```bash
    curl http://localhost:8080
    ```
 
-3. **Configure router**:
+4. **Configure router**:
    - Forward external port 80 → macOS host port 8080
    - Or use non-standard port for security
 
@@ -302,7 +336,7 @@ HTTP services require additional security considerations:
 1. **Use HTTPS when possible**:
    ```bash
    # Set up HTTPS forwarding
-   sudo scripts/setup_pf_forwarding.sh -v 192.168.105.10 -i 443 -e 8443
+   sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 443 -e 8443
    ```
 
 2. **Web application firewall**:
@@ -555,6 +589,32 @@ sudo scripts/setup_pf_forwarding.sh
 
 # Check script permissions
 ls -la scripts/
+```
+
+#### Security Hardening Script Issues
+
+**Symptoms**: Security hardening script fails or hangs
+```bash
+# Common issues:
+# - VM not running (script assumes it is)
+# - Network connectivity problems
+# - Package installation failures
+```
+
+**Solutions**:
+```bash
+# Check VM status first
+limactl list
+
+# Run with verbose output
+scripts/security_hardening.sh --verbose limawan-vm
+
+# Run just SSH hardening if full script fails
+scripts/security_hardening.sh --ssh-only limawan-vm
+
+# Manual hardening if script fails completely
+limactl shell limawan-vm sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+limactl shell limawan-vm sudo systemctl reload ssh
 ```
 
 ### Diagnostic Tools

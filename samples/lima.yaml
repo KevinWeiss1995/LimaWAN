@@ -18,6 +18,16 @@ cpus: 2
 memory: "2GiB"
 disk: "10GiB"
 
+# Disable container runtime (not needed for port forwarding)
+containerd:
+  system: false
+  user: false
+
+# Disable additional services to speed up startup
+# This skips the optional requirements that cause delays
+env:
+  LIMA_IGNORE_OPTIONAL_REQUIREMENTS: "true"
+
 # Network configuration
 networks:
   - lima: "shared"
@@ -28,6 +38,8 @@ ssh:
   loadDotSSHPubKeys: true
   forwardAgent: false
   forwardX11: false
+
+
 
 # Firmware and hardware
 firmware:
@@ -195,25 +207,8 @@ provision:
       
       echo "User configuration complete"
 
-# Probes for health checking
-probes:
-  - description: "SSH connectivity"
-    script: |
-      #!/bin/bash
-      nc -z 192.168.105.10 22
-    hint: "Check if SSH is accessible"
-    
-  - description: "Web server"
-    script: |
-      #!/bin/bash
-      curl -f http://192.168.105.10/ >/dev/null 2>&1
-    hint: "Check if web server is running"
-    
-  - description: "Network connectivity"
-    script: |
-      #!/bin/bash
-      ping -c 3 192.168.105.10 >/dev/null 2>&1
-    hint: "Check if VM is reachable"
+# Probes are disabled to speed up startup
+# Custom health checks can be run manually after VM is ready
 
 # Message to display when VM is ready
 message: |

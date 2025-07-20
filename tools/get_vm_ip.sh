@@ -58,7 +58,7 @@ log_verbose() {
 check_vm_running() {
     local vm_name="$1"
     
-    if ! limactl list -f '{{.Name}}\t{{.Status}}' | grep -q "^${vm_name}[[:space:]]*Running$"; then
+    if ! limactl list -f '{{.Name}}\t{{.Status}}' | awk -v vm="$vm_name" '$1 == vm && $2 == "Running" {exit 0} END {exit 1}'; then
         log "${RED}ERROR: VM '${vm_name}' is not running${NC}"
         log "Available VMs:"
         limactl list
@@ -100,16 +100,23 @@ get_vm_ip() {
     
     log_verbose "Getting IP address for VM: ${vm_name}" >&2
     
-    # Try to get IP from lima0 interface
+    # First try to get IP from lima0 interface (original approach)
     ip=$(limactl shell "$vm_name" ip addr show lima0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1 | head -1)
     
     if [[ -z "$ip" ]]; then
-        # Fallback: try to get any 192.168.105.x IP
-        ip=$(limactl shell "$vm_name" ip addr 2>/dev/null | grep "inet 192.168.105" | awk '{print $2}' | cut -d'/' -f1 | head -1)
+        # Try eth0 interface (common for Lima VMs)
+        ip=$(limactl shell "$vm_name" ip addr show eth0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    fi
+    
+    if [[ -z "$ip" ]]; then
+        # Fallback: try to get any private IP (192.168.x.x or 10.x.x.x)
+        ip=$(limactl shell "$vm_name" ip addr 2>/dev/null | grep -E "inet (192\.168\.|10\.)" | awk '{print $2}' | cut -d'/' -f1 | head -1)
     fi
     
     if [[ -z "$ip" ]]; then
         log "${RED}ERROR: Could not get IP address for VM '${vm_name}'${NC}" >&2
+        log "Available interfaces:" >&2
+        limactl shell "$vm_name" ip addr show 2>/dev/null | grep -E "^[0-9]+:" >&2 || true
         return 1
     fi
     

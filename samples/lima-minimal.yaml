@@ -1,0 +1,113 @@
+# LimaWAN Minimal Configuration
+# Fast-starting Lima VM for port forwarding (no complex setup)
+
+# VM Configuration
+vmType: "qemu"
+os: "Linux"
+arch: "x86_64"
+
+# Images - specify the OS image to use
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+# Resource allocation
+cpus: 2
+memory: "2GiB"
+disk: "10GiB"
+
+# Disable container runtime (not needed for port forwarding)
+containerd:
+  system: false
+  user: false
+
+# Network configuration
+networks:
+  - lima: "shared"
+
+# SSH configuration
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: true
+  forwardAgent: false
+  forwardX11: false
+
+# Firmware and hardware
+firmware:
+  legacyBIOS: false
+  
+video:
+  display: "none"
+  
+audio:
+  device: "none"
+
+# Minimal mounts
+mounts:
+  - location: "~"
+    writable: true
+  - location: "/tmp/lima"
+    writable: true
+
+# Minimal provision for fast startup
+provision:
+  # Basic system setup only
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      
+      # Update package lists
+      apt-get update
+      
+      # Install minimal packages
+      apt-get install -y curl wget openssh-server nginx
+      
+      # Ensure SSH is running
+      systemctl enable ssh
+      systemctl start ssh
+      
+      # Start nginx with simple test page
+      systemctl enable nginx
+      systemctl start nginx
+      
+      # Create simple test page
+      cat > /var/www/html/index.html << 'EOF'
+      <!DOCTYPE html>
+      <html>
+      <head><title>LimaWAN Test Server</title></head>
+      <body>
+        <h1>🎉 LimaWAN VM is Running!</h1>
+        <p>✅ Lima VM started successfully</p>
+        <p>✅ HTTP server is accessible</p>
+        <p>⚠️ This server is exposed to the internet via LimaWAN</p>
+        <p><small>Generated at $(date)</small></p>
+      </body>
+      </html>
+      EOF
+      
+      echo "Basic setup complete"
+  
+  # User configuration
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux
+      
+      # Basic user setup
+      echo "User setup complete"
+
+# Message to display when VM is ready
+message: |
+  LimaWAN VM is ready!
+  
+  To set up port forwarding:
+  1. Get VM IP: VM_IP=$(tools/get_vm_ip.sh -q)
+  2. SSH: sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 22 -e 2222
+  3. HTTP: sudo scripts/setup_pf_forwarding.sh -v $VM_IP -i 80 -e 8080
+  4. Test: ssh -p 2222 $USER@localhost
+  
+  This is a minimal configuration for fast startup.
+  For security hardening, run the full configuration later. 
