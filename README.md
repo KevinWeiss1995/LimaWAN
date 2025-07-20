@@ -200,7 +200,7 @@ For the fastest possible setup:
 
 ```bash
 # Run the quick start script (starts VM + optional security hardening)
-scripts/quick_start.sh --security limawan-vm
+scripts/quick_start.sh --secure limawan-vm
 
 # Then set up port forwarding
 VM_IP=$(tools/get_vm_ip.sh -q)
