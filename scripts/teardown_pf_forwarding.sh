@@ -24,7 +24,7 @@ readonly NC='\033[0m' # No Color
 FORCE_REMOVE=false
 KEEP_BACKUP=false
 VERBOSE=false
-
+c
 # Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1" >&2

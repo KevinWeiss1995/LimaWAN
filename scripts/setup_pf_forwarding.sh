@@ -188,13 +188,13 @@ generate_anchor_rules() {
 # Generated on $(date)
 # VM: ${vm_ip}:${internal_port} -> External: ${external_port}
 
-# Port forwarding rule
-pass in on ${host_interface} inet proto tcp from any to any port ${external_port} rdr-to ${vm_ip} port ${internal_port}
-pass out on ${host_interface} inet proto tcp from any to ${vm_ip} port ${internal_port}
+# Translation rules first (NAT/RDR)
+rdr on ${host_interface} inet proto tcp from any to any port ${external_port} -> ${vm_ip} port ${internal_port}
+nat on ${host_interface} inet from ${vm_ip} to any -> (${host_interface})
 
-# Allow established connections
-pass in on ${host_interface} inet proto tcp from any to any port ${external_port} flags S/SA keep state
-pass out on ${host_interface} inet proto tcp from ${vm_ip} to any nat-to (${host_interface})
+# Filtering rules second (pass/block)
+pass in on ${host_interface} inet proto tcp from any to ${vm_ip} port ${internal_port} flags S/SA keep state
+pass out on ${host_interface} inet proto tcp from ${vm_ip} to any flags S/SA keep state
 
 # Additional security rules
 # Block if no established connection
@@ -219,9 +219,8 @@ update_main_pf_config() {
     cat >> "${MAIN_CONF_PATH}" << EOF
 
 # LimaWAN Port Forwarding Anchor
-anchor "${ANCHOR_NAME}" {
-    load anchor "${ANCHOR_NAME}" from "${ANCHOR_PATH}"
-}
+anchor "${ANCHOR_NAME}"
+load anchor "${ANCHOR_NAME}" from "${ANCHOR_PATH}"
 
 EOF
     
